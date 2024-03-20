@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+option csharp_namespace = "MessagingSystem.GrpcService.Protos";
+
+package message;
+
+
+service MessagingService {
+  rpc CreateMessage(CreateMessageRequest) returns (MessageResponse);
+  rpc UpdateMessage(UpdateMessageRequest) returns (MessageResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (MessageResponse);
+  rpc GetMessage(GetMessageRequest) returns (MessageDetailsResponse);
+  rpc GetUserMessages(GetUserMessagesRequest) returns (UserMessagesResponse);
+}
+
+
+message CreateMessageRequest {
+  string sender_id = 1;
+  string recipient_id = 2;
+  string message_content = 3;
+}
+
+message UpdateMessageRequest {
+  string message_id = 1;
+  string new_message_content = 2;
+}
+
+message DeleteMessageRequest {
+  string message_id = 1;
+}
+
+message GetMessageRequest {
+  string message_id = 1;
+}
+
+message MessageDetailsResponse {
+  string message_id = 1;
+  string sender_id = 2;
+  string recipient_id = 3;
+  string message_content = 4;
+}
+
+message MessageResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetUserMessagesRequest {
+  string user_id = 1;
+}
+
+message UserMessagesResponse {
+  repeated MessageDetailsResponse messages = 1;
+}
