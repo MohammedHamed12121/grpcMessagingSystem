@@ -1,10 +1,18 @@
+using System;
+using System.Reflection;
+using MessagingSystem.GrpcService.Data;
 using MessagingSystem.GrpcService.Providers;
 using MessagingSystem.GrpcService.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<MessagesProvider>();
 
+builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite("Data Source=Messages.db"));
+
+// MediatR
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
 
 builder.Services.AddGrpc();
 

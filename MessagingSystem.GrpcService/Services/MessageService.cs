@@ -3,19 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Grpc.Core;
+using MediatR;
+using MessagingSystem.GrpcService.Commands;
 using MessagingSystem.GrpcService.Models;
 using MessagingSystem.GrpcService.Protos;
 using MessagingSystem.GrpcService.Providers;
+using MessagingSystem.GrpcService.Queries;
 
 namespace MessagingSystem.GrpcService.Services
 {
     public class MessageService : MessagingService.MessagingServiceBase
     {
-        private readonly MessagesProvider _messageProvider;
+        private readonly IMediator _mediatr;
 
-        public MessageService(MessagesProvider messageProvider)
+        public MessageService(IMediator mediatr)
         {
-            _messageProvider = messageProvider;
+            _mediatr = mediatr;
         }
         public override async Task<MessageResponse> CreateMessage(CreateMessageRequest request, ServerCallContext context)
         {
@@ -28,13 +31,14 @@ namespace MessagingSystem.GrpcService.Services
             // TODO: use AutoMapper
             var message = new Message
             {
+                Id = Guid.NewGuid().ToString(),
                 SenderId = request.SenderId,
                 RecipientId = request.RecipientId,
                 Content = request.MessageContent
             };
 
-            // TODO: use entityframework
-            _messageProvider.AddMessage(message);
+            // TODO: This will return a bool use it to handle errors
+            await _mediatr.Send(new CreateMessageCommand(message));
 
             return await Task.FromResult(new MessageResponse
             {
@@ -50,7 +54,7 @@ namespace MessagingSystem.GrpcService.Services
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "resouce index must be greater than 0"));
             }
 
-            var message = _messageProvider.GetMessageById(request.MessageId);
+            var message = await _mediatr.Send(new GetMessageQuery(request.MessageId));
 
 
             return await Task.FromResult(new MessageDetailsResponse
@@ -65,7 +69,7 @@ namespace MessagingSystem.GrpcService.Services
         public override async Task<UserMessagesResponse> GetUserMessages(GetUserMessagesRequest request, ServerCallContext context)
         {
             var response = new UserMessagesResponse();
-            var userMessages = _messageProvider.GetMessagesForUser(request.UserId);
+            var userMessages = await _mediatr.Send(new GetUserMessagesQuery(request.UserId));
 
             foreach (Message message in userMessages)
             {
@@ -88,7 +92,7 @@ namespace MessagingSystem.GrpcService.Services
             if (request.NewMessageContent == string.Empty)
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "You must suppply a valid object"));
 
-            var message =  _messageProvider.UpdateMessage(request.MessageId, request.NewMessageContent);
+            var message =  await _mediatr.Send(new UpdateMessageCommand(request.MessageId, request.NewMessageContent));
 
             if (!message){
                 throw new RpcException(new Status(StatusCode.NotFound, $"No Message with Id {request.MessageId}"));
@@ -102,11 +106,14 @@ namespace MessagingSystem.GrpcService.Services
         }
         public override async Task<MessageResponse> DeleteMessage(DeleteMessageRequest request, ServerCallContext context) 
         {
-            var message = _messageProvider.DeleteMessage(request.MessageId);
+            
+            var message = await _mediatr.Send(new DeleteMessageCommand(request.MessageId));
+
             if(!message)
             {
                 throw new RpcException(new Status(StatusCode.NotFound, $"No Message with Id {request.MessageId}"));
             }
+            
 
             return await Task.FromResult(new MessageResponse
             {
