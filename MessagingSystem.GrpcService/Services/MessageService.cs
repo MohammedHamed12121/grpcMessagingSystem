@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using AutoMapper;
 using Grpc.Core;
 using MediatR;
 using MessagingSystem.GrpcService.Commands;
 using MessagingSystem.GrpcService.Models;
 using MessagingSystem.GrpcService.Protos;
-using MessagingSystem.GrpcService.Providers;
 using MessagingSystem.GrpcService.Queries;
 
 namespace MessagingSystem.GrpcService.Services
@@ -15,10 +11,12 @@ namespace MessagingSystem.GrpcService.Services
     public class MessageService : MessagingService.MessagingServiceBase
     {
         private readonly IMediator _mediatr;
+        private readonly IMapper _mapper;
 
-        public MessageService(IMediator mediatr)
+        public MessageService(IMediator mediatr, IMapper mapper)
         {
             _mediatr = mediatr;
+            _mapper = mapper;
         }
         public override async Task<MessageResponse> CreateMessage(CreateMessageRequest request, ServerCallContext context)
         {
@@ -28,14 +26,8 @@ namespace MessagingSystem.GrpcService.Services
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "You must suppply a valid object"));
             }
 
-            // TODO: use AutoMapper
-            var message = new Message
-            {
-                Id = Guid.NewGuid().ToString(),
-                SenderId = request.SenderId,
-                RecipientId = request.RecipientId,
-                Content = request.MessageContent
-            };
+            var message = _mapper.Map<Message>(request);
+            message.Id = Guid.NewGuid().ToString();
 
             // TODO: This will return a bool use it to handle errors
             await _mediatr.Send(new CreateMessageCommand(message));
@@ -56,14 +48,10 @@ namespace MessagingSystem.GrpcService.Services
 
             var message = await _mediatr.Send(new GetMessageQuery(request.MessageId));
 
+            var response = _mapper.Map<MessageDetailsResponse>(message);
+            
+            return await Task.FromResult(response);
 
-            return await Task.FromResult(new MessageDetailsResponse
-            {
-                MessageId = message.Id,
-                SenderId = message.SenderId,
-                RecipientId = message.RecipientId,
-                MessageContent = message.Content
-            });
         }
 
         public override async Task<UserMessagesResponse> GetUserMessages(GetUserMessagesRequest request, ServerCallContext context)
@@ -73,14 +61,8 @@ namespace MessagingSystem.GrpcService.Services
 
             foreach (Message message in userMessages)
             {
-                response.Messages.Add(new MessageDetailsResponse
-                {
-                    MessageId = message.Id,
-                    SenderId = message.SenderId,
-                    RecipientId = message.RecipientId,
-                    MessageContent = message.Content,
-
-                });
+                var userMessagesResponse = _mapper.Map<MessageDetailsResponse>(message);
+                response.Messages.Add(userMessagesResponse);
             }
 
             return await Task.FromResult(response);
